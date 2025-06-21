@@ -1,5 +1,23 @@
 import * as vscode from 'vscode';
-import { ModelAnalyzer } from './modelAnalyzer';
+import { CommandModelInfo, PHPCommand } from './commands/phpCommand';
+import { isCommandError } from './commands/baseCommand';
+
+export interface ModelInfo {
+    name: string;
+    namespace: string;
+    table: string;
+    fillable: string[];
+    hidden: string[];
+    casts: { [key: string]: string };
+    relationships: RelationshipInfo[];
+    traits: string[];
+}
+
+export interface RelationshipInfo {
+    name: string;
+    type: string;
+    relatedModel?: string;
+}
 
 export class LaravelModelsProvider implements vscode.TreeDataProvider<ModelItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ModelItem | undefined | null | void> = new vscode.EventEmitter<ModelItem | undefined | null | void>();
@@ -7,10 +25,8 @@ export class LaravelModelsProvider implements vscode.TreeDataProvider<ModelItem>
 
     private items: ModelItem[] = [];
     private label: string | undefined;
-    private analyzer: ModelAnalyzer;
 
     constructor() {
-        this.analyzer = new ModelAnalyzer();
         this.refresh();
     }
 
@@ -51,36 +67,37 @@ export class LaravelModelsProvider implements vscode.TreeDataProvider<ModelItem>
 
         // Load Models
         try {
-            const modelsPattern = new vscode.RelativePattern(workspaceFolder, 'app/Models/**/*.php');
-            const files = await vscode.workspace.findFiles(modelsPattern);
-            const modelItems: ModelItem[] = [];
-            const expandByDefault = config.get('expandByDefault', false);
+            const models = await PHPCommand.getModels(workspaceFolder.uri.fsPath);
 
-            for (const file of files) {
-                const modelInfo = await this.analyzer.analyzeModel(file);
-                if (modelInfo) {
-                    const modelItem = new ModelItem(
-                        modelInfo.name,
-                        expandByDefault ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
-                        file,
-                        'model',
-                        modelInfo // Pass modelInfo to ModelItem constructor
-                    );
-                    modelItem.tooltip = this.createTooltip(modelInfo, 'model'); // Explicitly set tooltip for model
+            models.forEach((model: CommandModelInfo) => {
+                const { uri, ...modelInfo }: CommandModelInfo = model;
+                const file = vscode.Uri.file(uri);
 
-                    // Agregar información como hijos
-                    modelItem.children = this.createModelInfoNodes(modelInfo, expandByDefault);
-                    modelItems.push(modelItem);
-                }
-            }
+                const modelItem = new ModelItem(
+                    modelInfo.name,
+                    vscode.TreeItemCollapsibleState.Collapsed,
+                    file
+                );
 
-            // Ordenar modelos alfabéticamente
-            modelItems.sort((a, b) => a.originalLabel.localeCompare(b.originalLabel));
-            this.items.push(...modelItems);
+                // load information as nodes
+                modelItem.children = this.createModelInfoNodes(modelInfo);
+                modelItem.tooltip = this.createTooltip(modelInfo);
+
+                this.items.push(modelItem);
+            });
+
+            this.items.sort((a, b) => a.label!.toString().localeCompare(b.label!.toString()));
 
         } catch (error) {
             console.error('Error loading models:', error);
-            // No limpiar this.items aquí para que la información del proyecto aún se muestre si está habilitada
+
+            if (isCommandError(error)) {
+                if ('status' in error) {
+                    console.log(error.output.toString());
+                }
+            }
+
+            this.items = [];
         }
     }
 

@@ -112,9 +112,7 @@ The extension uses VS Code's built-in theme icons and adapts to your current the
 
 ### File Watching
 
-The extension automatically watches for changes in:
-
-- `app/Models/**/*.php`
+The extension automatically watches for changes in all namespaces registered in the `composer.json` file
 
 ## 📝 Commands
 
@@ -134,7 +132,6 @@ The extension automatically watches for changes in:
 ## 🐛 Known Issues
 
 - Models with complex inheritance might not be fully analyzed
-- Custom model paths outside `app/Models` directory are not automatically detected
 - Some dynamic relationships might not be recognized
 
 ### Development Setup

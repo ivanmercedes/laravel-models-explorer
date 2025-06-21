@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { LaravelModelsProvider, ModelItem } from './laravelModelsProvider';
 import { LaravelProjectDetector } from './laravelProjectDetector';
+import ModelTemplate from './templates/model';
 
 let modelsProvider: LaravelModelsProvider;
 
@@ -105,33 +106,8 @@ async function createNewModel(modelName: string) {
     const modelsPath = vscode.Uri.joinPath(workspaceFolder.uri, 'app', 'Models');
     const modelFile = vscode.Uri.joinPath(modelsPath, `${modelName}.php`);
     
-    const modelTemplate = `<?php
-
-namespace App\\Models;
-
-use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;
-use Illuminate\\Database\\Eloquent\\Model;
-
-class ${modelName} extends Model
-{
-    use HasFactory;
-
-    protected $fillable = [
-        //
-    ];
-
-    protected $hidden = [
-        //
-    ];
-
-    protected $casts = [
-        //
-    ];
-}
-`;
-    
     try {
-        await vscode.workspace.fs.writeFile(modelFile, Buffer.from(modelTemplate));
+        await vscode.workspace.fs.writeFile(modelFile, Buffer.from(ModelTemplate(modelName)));
         await vscode.window.showTextDocument(modelFile);
         vscode.window.showInformationMessage(`Model ${modelName} created successfully`);
     } catch (error) {
